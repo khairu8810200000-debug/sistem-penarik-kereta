@@ -60,7 +60,7 @@ table{border-collapse:collapse;width:100%;min-width:760px}th,td{text-align:left;
 </div>
 <div class="card">
 <h2>Carian rekod</h2>
-<div class="row noprint"><input id="search" placeholder="Cari no. pendaftaran, model atau nama pelanggan..."><button id="refreshBtn" type="button">Muat semula</button><button id="exportBtn" class="secondary" type="button">Eksport CSV</button><button id="mapBtn" class="secondary" type="button">Peta lokasi kereta</button></div><p id="notifyStatus" class="small noprint">Notifikasi belum diaktifkan.</p>
+<div class="row noprint"><input id="search" placeholder="Cari no. pendaftaran, model atau nama pelanggan..."><select id="filterAction" aria-label="Tapis status tindakan" style="max-width:220px"><option value="">Semua status tindakan</option><option>Dalam Proses</option><option>Menunggu Arahan</option><option>Berjaya Ditarik</option><option>Tidak Berjaya</option><option>Dibatalkan</option></select><select id="filterTeam" aria-label="Tapis team" style="max-width:220px"><option value="">Semua team</option><option value="unassigned">Belum ditugaskan</option></select><button id="refreshBtn" type="button">Muat semula</button><button id="exportBtn" class="secondary" type="button">Eksport CSV</button><button id="mapBtn" class="secondary" type="button">Peta lokasi kereta</button></div><p id="notifyStatus" class="small noprint">Notifikasi belum diaktifkan.</p>
 <p class="small">Paparan hanya menunjukkan rekod yang boleh diakses oleh akaun yang log masuk.</p>
 <div class="tablewrap"><table><thead><tr><th>No. pendaftaran</th><th>Model</th><th>Pelanggan</th><th>Status bayaran</th><th>Status tindakan</th><th>Team ditugaskan</th><th>Tunggakan</th><th>Gambar</th><th>GPS</th><th>Tarikh</th><th>Tindakan</th></tr></thead><tbody id="carRows"><tr><td colspan="11">Memuatkan rekod...</td></tr></tbody></table></div>
 </div>
@@ -137,6 +137,7 @@ table{border-collapse:collapse;width:100%;min-width:760px}th,td{text-align:left;
     if(error){message('appMsg','Gagal memuatkan senarai team: '+error.message,'error');return;}
     teamProfiles=(data||[]).filter(p=>p.peranan==='team');
     const sel=$('assignedTo');const old=sel.value;sel.innerHTML='<option value="">Belum ditugaskan</option>'+teamProfiles.map(p=>'<option value="'+esc(p.id)+'">'+esc(p.nama||p.id)+'</option>').join('');sel.value=old;
+    const filter=$('filterTeam');if(filter){const selected=filter.value;filter.innerHTML='<option value="">Semua team</option><option value="unassigned">Belum ditugaskan</option>'+teamProfiles.map(p=>'<option value="'+esc(p.id)+'">'+esc(p.nama||p.id)+'</option>').join('');filter.value=selected;}
   }
 
   async function loadCars() {
@@ -153,7 +154,14 @@ table{border-collapse:collapse;width:100%;min-width:760px}th,td{text-align:left;
   function updateDashboard() { $('statTotal').textContent=allCars.length; $('statProgress').textContent=allCars.filter(c=>(c.status_tindakan||'Dalam Proses')==='Dalam Proses').length; $('statDone').textContent=allCars.filter(c=>c.status_tindakan==='Berjaya Ditarik').length; $('statArrears').textContent=rm(allCars.reduce((s,c)=>s+Number(c.jumlah_tunggakan||0),0)); }
   function renderCars() {
     const q = $('search').value.trim().toLowerCase();
-    const rows = allCars.filter(c => [c.no_pendaftaran,c.model,c.nama_pelanggan,c.status_bayaran,c.status_tindakan,teamProfiles.find(p=>p.id===c.assigned_to)?.nama].some(v => String(v ?? '').toLowerCase().includes(q)));
+    const actionFilter = $('filterAction')?.value || '';
+    const teamFilter = $('filterTeam')?.value || '';
+    const rows = allCars.filter(c => {
+      const matchesSearch = [c.no_pendaftaran,c.model,c.nama_pelanggan,c.status_bayaran,c.status_tindakan,teamProfiles.find(p=>p.id===c.assigned_to)?.nama].some(v => String(v ?? '').toLowerCase().includes(q));
+      const matchesAction = !actionFilter || (c.status_tindakan || 'Dalam Proses') === actionFilter;
+      const matchesTeam = !teamFilter || (teamFilter === 'unassigned' ? !c.assigned_to : String(c.assigned_to || '') === teamFilter);
+      return matchesSearch && matchesAction && matchesTeam;
+    });
     if (!rows.length) { $('carRows').innerHTML = '<tr><td colspan="11">Tiada rekod dijumpai.</td></tr>'; return; }
     $('carRows').innerHTML = rows.map(c => `<tr>
       <td><strong>${esc(c.no_pendaftaran)}</strong></td><td>${esc(c.model)}</td><td>${esc(c.nama_pelanggan || '-')}<br>${c.no_whatsapp ? '<a href="https://wa.me/' + encodeURIComponent(String(c.no_whatsapp).replace(/[^0-9]/g, '')) + '" target="_blank" rel="noopener">WhatsApp</a>' : '<span class="small">Tiada nombor</span>'}</td>
@@ -200,6 +208,8 @@ table{border-collapse:collapse;width:100%;min-width:760px}th,td{text-align:left;
   }
 
   $('search').addEventListener('input', renderCars);
+  $('filterAction').addEventListener('change', renderCars);
+  $('filterTeam').addEventListener('change', renderCars);
   $('refreshBtn').addEventListener('click', loadCars);
   $('clearBtn').addEventListener('click', clearForm);
   $('cancelEdit').addEventListener('click', clearForm);
