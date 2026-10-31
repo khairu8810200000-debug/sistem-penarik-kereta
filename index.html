@@ -74,6 +74,9 @@ table{border-collapse:collapse;width:100%;min-width:760px}th,td{text-align:left;
   const $ = id => document.getElementById(id);
   let allCars = [];
   let isAdmin = false;
+  let currentUserId = null;
+  let teamProfiles = [];
+  let realtimeChannel = null;
   const STORAGE_BUCKET = 'gambar-kereta';
 
   function message(id, text, type='ok') {
@@ -97,8 +100,12 @@ table{border-collapse:collapse;width:100%;min-width:760px}th,td{text-align:left;
     if (session) {
       $('signedInAs').textContent = 'Log masuk: ' + (session.user.email || 'pengguna');
       hideMessage('loginMsg');
+      currentUserId = session.user.id;
       const profile = await db.from('profil_team').select('nama,peranan').eq('id', session.user.id).maybeSingle();
       isAdmin = !profile.error && profile.data?.peranan === 'admin';
+      if (isAdmin) await loadTeamProfiles();
+      if (realtimeChannel) db.removeChannel(realtimeChannel);
+      realtimeChannel = db.channel('kereta-live-updates').on('postgres_changes',{event:'*',schema:'public',table:'kereta'},payload=>{if(payload.eventType==='INSERT'&&payload.new)notifyNewCar(payload.new);loadCars();}).subscribe();
       $('manageCard').classList.toggle('hidden', !isAdmin);
       $('dashboardCard').classList.toggle('hidden', !isAdmin);
       $('signedInAs').textContent += isAdmin ? ' • ADMIN' : ' • TEAM (paparan sahaja)';
@@ -192,8 +199,8 @@ table{border-collapse:collapse;width:100%;min-width:760px}th,td{text-align:left;
   $('carPhoto').addEventListener('change',()=>{const f=$('carPhoto').files?.[0];if(f){$('photoPreview').src=URL.createObjectURL(f);$('photoPreview').classList.remove('hidden');}});
   $('gpsBtn').addEventListener('click',()=>{if(!navigator.geolocation){message('appMsg','Pelayar tidak menyokong GPS.','error');return;}$('gpsBtn').disabled=true;$('gpsStatus').textContent='Mendapatkan lokasi...';navigator.geolocation.getCurrentPosition(p=>{$('gpsLat').value=p.coords.latitude;$('gpsLng').value=p.coords.longitude;$('gpsStatus').textContent='GPS direkodkan: '+p.coords.latitude.toFixed(6)+', '+p.coords.longitude.toFixed(6);$('gpsBtn').disabled=false;},e=>{$('gpsStatus').textContent='Gagal mendapatkan GPS: '+e.message;$('gpsBtn').disabled=false;},{enableHighAccuracy:true,timeout:15000,maximumAge:0});});
   $('pdfBtn').addEventListener('click',()=>window.print());\n  $('mapBtn').addEventListener('click',()=>{const loc=allCars.filter(c=>c.lokasi_lat!=null&&c.lokasi_lng!=null);if(!loc.length){message('appMsg','Belum ada kereta dengan lokasi GPS.','error');return;}const first=loc[0];const waypoints=loc.slice(1,9).map(c=>c.lokasi_lat+','+c.lokasi_lng).join('|');window.open('https://www.google.com/maps/dir/?api=1&destination='+encodeURIComponent(first.lokasi_lat+','+first.lokasi_lng)+(waypoints?'&waypoints='+encodeURIComponent(waypoints):''),'_blank');});\n  $('notifyBtn').addEventListener('click',async()=>{if(!('Notification' in window)){$('notifyStatus').textContent='Pelayar ini tidak menyokong notifikasi.';return;}const p=await Notification.requestPermission();$('notifyStatus').textContent=p==='granted'?'Notifikasi diaktifkan pada peranti ini.':'Kebenaran notifikasi tidak diberikan.';});\n  function notifyNewCar(car){if('Notification' in window&&Notification.permission==='granted')new Notification('Rekod kereta baharu',{body:(car.no_pendaftaran||'Kereta')+' — '+(car.model||'')});}\n  $('exportBtn').addEventListener('click', () => {
-    const headers=['No. Pendaftaran','Model','Nama Pelanggan','Status Bayaran','Status Tindakan','Jumlah Tunggakan','Tarikh Kemas Kini','Gambar URL','Latitude','Longitude','Catatan'];
-    const data=allCars.map(c=>[c.no_pendaftaran,c.model,c.nama_pelanggan,c.status_bayaran,c.status_tindakan,c.jumlah_tunggakan,c.tarikh_kemaskini,c.gambar_url,c.lokasi_lat,c.lokasi_lng,c.catatan]);
+    const headers=['No. Pendaftaran','Model','Nama Pelanggan','No WhatsApp','Status Bayaran','Status Tindakan','Team Ditugaskan','Jumlah Tunggakan','Tarikh Kemas Kini','Gambar URL','Latitude','Longitude','Catatan'];
+    const data=allCars.map(c=>[c.no_pendaftaran,c.model,c.nama_pelanggan,c.no_whatsapp,c.status_bayaran,c.status_tindakan,teamProfiles.find(p=>p.id===c.assigned_to)?.nama||'',c.jumlah_tunggakan,c.tarikh_kemaskini,c.gambar_url,c.lokasi_lat,c.lokasi_lng,c.catatan]);
     const csv=[headers,...data].map(row=>row.map(v=>'"'+String(v ?? '').replace(/"/g,'""')+'"').join(',')).join('\r\n');
     const blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8;'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='rekod-kereta.csv'; a.click(); URL.revokeObjectURL(a.href);
