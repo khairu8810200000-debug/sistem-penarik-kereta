@@ -60,7 +60,7 @@ table{border-collapse:collapse;width:100%;min-width:760px}th,td{text-align:left;
 </div>
 <div class="card">
 <h2>Carian rekod</h2>
-<div class="row noprint"><input id="search" placeholder="Cari no. pendaftaran, model atau nama pelanggan..."><select id="filterAction" aria-label="Tapis status tindakan" style="max-width:220px"><option value="">Semua status tindakan</option><option>Dalam Proses</option><option>Menunggu Arahan</option><option>Berjaya Ditarik</option><option>Tidak Berjaya</option><option>Dibatalkan</option></select><select id="filterTeam" aria-label="Tapis team" style="max-width:220px"><option value="">Semua team</option><option value="unassigned">Belum ditugaskan</option></select><button id="refreshBtn" type="button">Muat semula</button><button id="exportBtn" class="secondary" type="button">Eksport CSV</button><button id="mapBtn" class="secondary" type="button">Peta lokasi kereta</button></div><p id="notifyStatus" class="small noprint">Notifikasi belum diaktifkan.</p>
+<div class="row noprint"><input id="search" placeholder="Cari no. pendaftaran, model atau nama pelanggan..."><select id="filterAction" aria-label="Tapis status tindakan" style="max-width:220px"><option value="">Semua status tindakan</option><option>Dalam Proses</option><option>Menunggu Arahan</option><option>Berjaya Ditarik</option><option>Tidak Berjaya</option><option>Dibatalkan</option></select><select id="filterTeam" aria-label="Tapis team" style="max-width:220px"><option value="">Semua team</option><option value="unassigned">Belum ditugaskan</option></select><button id="refreshBtn" type="button">Muat semula</button><button id="exportBtn" class="secondary" type="button">Eksport CSV (ikut tapisan)</button><button id="reportBtn" class="secondary" type="button">Cetak laporan</button><button id="mapBtn" class="secondary" type="button">Peta lokasi kereta</button></div><p id="notifyStatus" class="small noprint">Notifikasi belum diaktifkan.</p>
 <p class="small">Paparan hanya menunjukkan rekod yang boleh diakses oleh akaun yang log masuk.</p>
 <div class="tablewrap"><table><thead><tr><th>No. pendaftaran</th><th>Model</th><th>Pelanggan</th><th>Status bayaran</th><th>Status tindakan</th><th>Team ditugaskan</th><th>Tunggakan</th><th>Gambar</th><th>GPS</th><th>Tarikh</th><th>Tindakan</th></tr></thead><tbody id="carRows"><tr><td colspan="11">Memuatkan rekod...</td></tr></tbody></table></div>
 </div>
@@ -152,16 +152,19 @@ table{border-collapse:collapse;width:100%;min-width:760px}th,td{text-align:left;
   }
 
   function updateDashboard() { $('statTotal').textContent=allCars.length; $('statProgress').textContent=allCars.filter(c=>(c.status_tindakan||'Dalam Proses')==='Dalam Proses').length; $('statDone').textContent=allCars.filter(c=>c.status_tindakan==='Berjaya Ditarik').length; $('statArrears').textContent=rm(allCars.reduce((s,c)=>s+Number(c.jumlah_tunggakan||0),0)); }
-  function renderCars() {
+  function getFilteredCars() {
     const q = $('search').value.trim().toLowerCase();
     const actionFilter = $('filterAction')?.value || '';
     const teamFilter = $('filterTeam')?.value || '';
-    const rows = allCars.filter(c => {
+    return allCars.filter(c => {
       const matchesSearch = [c.no_pendaftaran,c.model,c.nama_pelanggan,c.status_bayaran,c.status_tindakan,teamProfiles.find(p=>p.id===c.assigned_to)?.nama].some(v => String(v ?? '').toLowerCase().includes(q));
       const matchesAction = !actionFilter || (c.status_tindakan || 'Dalam Proses') === actionFilter;
       const matchesTeam = !teamFilter || (teamFilter === 'unassigned' ? !c.assigned_to : String(c.assigned_to || '') === teamFilter);
       return matchesSearch && matchesAction && matchesTeam;
     });
+  }
+  function renderCars() {
+    const rows = getFilteredCars();
     if (!rows.length) { $('carRows').innerHTML = '<tr><td colspan="11">Tiada rekod dijumpai.</td></tr>'; return; }
     $('carRows').innerHTML = rows.map(c => `<tr>
       <td><strong>${esc(c.no_pendaftaran)}</strong></td><td>${esc(c.model)}</td><td>${esc(c.nama_pelanggan || '-')}<br>${c.no_whatsapp ? '<a href="https://wa.me/' + encodeURIComponent(String(c.no_whatsapp).replace(/[^0-9]/g, '')) + '" target="_blank" rel="noopener">WhatsApp</a>' : '<span class="small">Tiada nombor</span>'}</td>
@@ -217,15 +220,26 @@ table{border-collapse:collapse;width:100%;min-width:760px}th,td{text-align:left;
   $('carPhoto').addEventListener('change',()=>{const f=$('carPhoto').files?.[0];if(f){$('photoPreview').src=URL.createObjectURL(f);$('photoPreview').classList.remove('hidden');}});
   $('gpsBtn').addEventListener('click',()=>{if(!navigator.geolocation){message('appMsg','Pelayar tidak menyokong GPS.','error');return;}$('gpsBtn').disabled=true;$('gpsStatus').textContent='Mendapatkan lokasi...';navigator.geolocation.getCurrentPosition(p=>{$('gpsLat').value=p.coords.latitude;$('gpsLng').value=p.coords.longitude;$('gpsStatus').textContent='GPS direkodkan: '+p.coords.latitude.toFixed(6)+', '+p.coords.longitude.toFixed(6);$('gpsBtn').disabled=false;},e=>{$('gpsStatus').textContent='Gagal mendapatkan GPS: '+e.message;$('gpsBtn').disabled=false;},{enableHighAccuracy:true,timeout:15000,maximumAge:0});});
   $('pdfBtn').addEventListener('click',()=>window.print());
+  $('reportBtn').addEventListener('click',()=>{
+    const rows=getFilteredCars();
+    const totalArrears=rows.reduce((sum,c)=>sum+Number(c.jumlah_tunggakan||0),0);
+    const previous=document.title;
+    document.title='Laporan Kereta - '+new Date().toLocaleDateString('ms-MY');
+    const report=document.createElement('div');report.id='printReportSummary';
+    report.innerHTML='<h2>Laporan Rekod Kereta</h2><p>Tarikh laporan: '+esc(new Date().toLocaleString('ms-MY'))+'</p><p>Jumlah rekod ditapis: <strong>'+rows.length+'</strong> &nbsp; Jumlah tunggakan: <strong>'+esc(rm(totalArrears))+'</strong></p><hr>';
+    const panel=$('appPanel');panel.insertBefore(report,panel.firstChild);
+    window.print();report.remove();document.title=previous;
+  });
   $('mapBtn').addEventListener('click',()=>{const loc=allCars.filter(c=>c.lokasi_lat!=null&&c.lokasi_lng!=null);if(!loc.length){message('appMsg','Belum ada kereta dengan lokasi GPS.','error');return;}const first=loc[0];const waypoints=loc.slice(1,9).map(c=>c.lokasi_lat+','+c.lokasi_lng).join('|');window.open('https://www.google.com/maps/dir/?api=1&destination='+encodeURIComponent(first.lokasi_lat+','+first.lokasi_lng)+(waypoints?'&waypoints='+encodeURIComponent(waypoints):''),'_blank');});
   $('notifyBtn').addEventListener('click',async()=>{if(!('Notification' in window)){$('notifyStatus').textContent='Pelayar ini tidak menyokong notifikasi.';return;}const p=await Notification.requestPermission();$('notifyStatus').textContent=p==='granted'?'Notifikasi diaktifkan pada peranti ini.':'Kebenaran notifikasi tidak diberikan.';});
   function notifyNewCar(car){if('Notification' in window&&Notification.permission==='granted')new Notification('Rekod kereta baharu',{body:(car.no_pendaftaran||'Kereta')+' — '+(car.model||'')});}
   $('exportBtn').addEventListener('click', () => {
     const headers=['No. Pendaftaran','Model','Nama Pelanggan','No WhatsApp','Status Bayaran','Status Tindakan','Team Ditugaskan','Jumlah Tunggakan','Tarikh Kemas Kini','Gambar URL','Latitude','Longitude','Catatan'];
-    const data=allCars.map(c=>[c.no_pendaftaran,c.model,c.nama_pelanggan,c.no_whatsapp,c.status_bayaran,c.status_tindakan,teamProfiles.find(p=>p.id===c.assigned_to)?.nama||'',c.jumlah_tunggakan,c.tarikh_kemaskini,c.gambar_url,c.lokasi_lat,c.lokasi_lng,c.catatan]);
+    const filtered=getFilteredCars();
+    const data=filtered.map(c=>[c.no_pendaftaran,c.model,c.nama_pelanggan,c.no_whatsapp,c.status_bayaran,c.status_tindakan,teamProfiles.find(p=>p.id===c.assigned_to)?.nama||'',c.jumlah_tunggakan,c.tarikh_kemaskini,c.gambar_url,c.lokasi_lat,c.lokasi_lng,c.catatan]);
     const csv=[headers,...data].map(row=>row.map(v=>'"'+String(v ?? '').replace(/"/g,'""')+'"').join(',')).join('\r\n');
     const blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8;'});
-    const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='rekod-kereta.csv'; a.click(); URL.revokeObjectURL(a.href);
+    const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='laporan-kereta-'+today()+'.csv'; a.click(); URL.revokeObjectURL(a.href);
   });
   db.auth.onAuthStateChange((_event, session) => {
     $('loginPanel').classList.toggle('hidden', !!session);
