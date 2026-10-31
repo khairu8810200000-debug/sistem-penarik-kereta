@@ -106,7 +106,7 @@ table{border-collapse:collapse;width:100%;min-width:760px}th,td{text-align:left;
       isAdmin = !profile.error && profile.data?.peranan === 'admin';
       await loadTeamProfiles();
       if (realtimeChannel) db.removeChannel(realtimeChannel);
-      realtimeChannel = db.channel('kereta-live-updates').on('postgres_changes',{event:'*',schema:'public',table:'kereta'},payload=>{if(payload.eventType==='INSERT'&&payload.new)notifyNewCar(payload.new);loadCars();}).subscribe();
+      realtimeChannel = db.channel('kereta-live-updates').on('postgres_changes',{event:'*',schema:'public',table:'kereta'},payload=>{if(payload.eventType==='INSERT'&&payload.new&&(isAdmin||payload.new.assigned_to===currentUserId))notifyNewCar(payload.new);loadCars();}).subscribe();
       $('manageCard').classList.toggle('hidden', !isAdmin);
       $('dashboardCard').classList.toggle('hidden', !isAdmin);
       $('signedInAs').textContent += isAdmin ? ' • ADMIN' : ' • TEAM (paparan sahaja)';
@@ -142,7 +142,9 @@ table{border-collapse:collapse;width:100%;min-width:760px}th,td{text-align:left;
 
   async function loadCars() {
     $('carRows').innerHTML = '<tr><td colspan="11">Memuatkan rekod...</td></tr>';
-    const {data, error} = await db.from('kereta').select('*').order('created_at', {ascending:false});
+    let query = db.from('kereta').select('*').order('created_at', {ascending:false});
+    if (!isAdmin) query = query.eq('assigned_to', currentUserId);
+    const {data, error} = await query;
     if (error) {
       $('carRows').innerHTML = '<tr><td colspan="11">Gagal memuatkan rekod.</td></tr>';
       message('appMsg', 'Ralat database: ' + error.message + '\nSemak polisi RLS dan pastikan akaun sudah log masuk.', 'error');
