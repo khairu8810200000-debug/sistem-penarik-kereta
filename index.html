@@ -100,6 +100,7 @@ table{border-collapse:collapse;width:100%;min-width:760px}th,td{text-align:left;
       const profile = await db.from('profil_team').select('nama,peranan').eq('id', session.user.id).maybeSingle();
       isAdmin = !profile.error && profile.data?.peranan === 'admin';
       $('manageCard').classList.toggle('hidden', !isAdmin);
+      $('dashboardCard').classList.toggle('hidden', !isAdmin);
       $('signedInAs').textContent += isAdmin ? ' • ADMIN' : ' • TEAM (paparan sahaja)';
       await loadCars();
       if (profile.error || !profile.data) {
