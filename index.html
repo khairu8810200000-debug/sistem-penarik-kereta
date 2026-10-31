@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="ms">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sistem Penarik Kereta</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{font-family:Arial,Helvetica,sans-serif;color:#172033;background:#f3f6fb}
+*{box-sizing:border-box}body{margin:0}header{background:#102a43;color:#fff;padding:22px 16px}
+.wrap{max-width:1100px;margin:auto;padding:18px}h1{margin:0 0 6px;font-size:25px}header p{margin:0;color:#d9e6f2}
+.card{background:#fff;border-radius:14px;padding:18px;margin:14px 0;box-shadow:0 4px 18px #102a4310}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+label{display:block;font-size:13px;font-weight:bold;margin-bottom:6px}
+input,select,textarea,button{font:inherit}input,select,textarea{width:100%;padding:11px;border:1px solid #cbd5e1;border-radius:8px;background:#fff}
+textarea{min-height:76px;resize:vertical}.full{grid-column:1/-1}
+button{border:0;border-radius:8px;padding:11px 14px;background:#1769aa;color:white;font-weight:bold;cursor:pointer}
+button.secondary{background:#e5edf5;color:#18344d}button.danger{background:#b42318}button:disabled{opacity:.55;cursor:wait}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.row input{flex:1;min-width:200px}
+.small{font-size:13px;color:#5b6878}.status{padding:10px;border-radius:8px;background:#eef6ff;margin-top:10px;display:none;white-space:pre-wrap}
+.status.error{background:#fff0f0;color:#9b1c1c}.status.ok{background:#edfff3;color:#176b37}
+table{border-collapse:collapse;width:100%;min-width:760px}th,td{text-align:left;padding:10px;border-bottom:1px solid #e5eaf0;font-size:14px}th{background:#f7f9fc}
+.tablewrap{overflow:auto}.badge{padding:4px 8px;border-radius:99px;background:#e8eef5;font-size:12px;white-space:nowrap}
+.hidden{display:none!important}.topright{float:right}.authbox{max-width:480px;margin:28px auto}
+@media(max-width:650px){.grid{grid-template-columns:1fr}.full{grid-column:auto}.wrap{padding:12px}h1{font-size:22px}}
+</style>
+</head>
+<body>
+<header><div class="wrap"><h1>🚗 Sistem Penarik Kereta</h1><p>Sistem rekod dalaman pasukan — akses memerlukan log masuk.</p></div></header>
+<main class="wrap">
+<section id="loginPanel" class="card authbox">
+<h2>Log masuk admin</h2>
+<p class="small">Gunakan emel dan kata laluan akaun yang dibuat dalam Supabase Authentication.</p>
+<form id="loginForm" class="grid">
+<div class="full"><label for="email">Emel</label><input id="email" type="email" autocomplete="username" required></div>
+<div class="full"><label for="password">Kata laluan</label><input id="password" type="password" autocomplete="current-password" required></div>
+<div class="full"><button id="loginBtn" type="submit">Log masuk</button></div>
+</form><div id="loginMsg" class="status"></div>
+</section>
+
+<section id="appPanel" class="hidden">
+<div class="card">
+<div class="row" style="justify-content:space-between"><div><strong id="signedInAs">Sudah log masuk</strong><div class="small">Rekod disimpan dalam database Supabase.</div></div><button id="logoutBtn" class="secondary" type="button">Log keluar</button></div>
+<div id="appMsg" class="status"></div>
+</div>
+<div class="card">
+<h2 id="formTitle">Tambah rekod kereta</h2>
+<form id="carForm" class="grid">
+<input id="recordId" type="hidden">
+<div><label for="plate">No. pendaftaran *</label><input id="plate" required placeholder="Contoh: BCD1234"></div>
+<div><label for="model">Model kereta *</label><input id="model" required placeholder="Contoh: Toyota Hilux 2022"></div>
+<div><label for="customer">Nama pelanggan</label><input id="customer" placeholder="Nama pelanggan"></div>
+<div><label for="status">Status bayaran *</label><select id="status"><option>Belum disahkan</option><option>Tunggakan</option><option>Dalam tindakan</option><option>Selesai</option></select></div>
+<div><label for="arrears">Jumlah tunggakan (RM)</label><input id="arrears" type="number" min="0" step="0.01" value="0" required></div>
+<div><label for="updated">Tarikh kemas kini</label><input id="updated" type="date"></div>
+<div class="full"><label for="notes">Catatan</label><textarea id="notes" placeholder="Catatan dalaman yang dibenarkan"></textarea></div>
+<div class="full row"><button id="saveBtn" type="submit">Simpan rekod</button><button id="cancelEdit" class="secondary hidden" type="button">Batal edit</button><button id="clearBtn" class="secondary" type="button">Kosongkan borang</button></div>
+</form>
+</div>
+<div class="card">
+<h2>Carian rekod</h2>
+<div class="row"><input id="search" placeholder="Cari no. pendaftaran, model atau nama pelanggan..."><button id="refreshBtn" type="button">Muat semula</button><button id="exportBtn" class="secondary" type="button">Eksport CSV</button></div>
+<p class="small">Paparan hanya menunjukkan rekod yang boleh diakses oleh akaun yang log masuk.</p>
+<div class="tablewrap"><table><thead><tr><th>No. pendaftaran</th><th>Model</th><th>Pelanggan</th><th>Status</th><th>Tunggakan</th><th>Tarikh</th><th>Tindakan</th></tr></thead><tbody id="carRows"><tr><td colspan="7">Memuatkan rekod...</td></tr></tbody></table></div>
+</div>
+</section>
+<p class="small">Peringatan: gunakan hanya data yang anda berhak akses. Jangan masukkan nombor kad pengenalan, alamat rumah, atau maklumat sensitif yang tidak diperlukan. Status tunggakan perlu disahkan daripada sumber yang sah.</p>
+</main>
+<script>
+(() => {
+  const SUPABASE_URL = 'https://dpgbxzpiajzdjgawkfwk.supabase.co';
+  const SUPABASE_KEY = 'sb_publishable_qyluyz6HCX6mMt-BOQhQoQ_5fG3NXp6';
+  const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  const $ = id => document.getElementById(id);
+  let allCars = [];
+
+  function message(id, text, type='ok') {
+    const el = $(id); el.textContent = text; el.className = 'status ' + type; el.style.display = 'block';
+  }
+  function hideMessage(id) { $(id).style.display = 'none'; }
+  function esc(value) {
+    return String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+  function rm(value) {
+    return new Intl.NumberFormat('ms-MY',{style:'currency',currency:'MYR'}).format(Number(value || 0));
+  }
+  function today() { return new Date().toLocaleDateString('en-CA'); }
+
+  async function showSession() {
+    const {data, error} = await db.auth.getSession();
+    if (error) message('loginMsg', error.message, 'error');
+    const session = data?.session;
+    $('loginPanel').classList.toggle('hidden', !!session);
+    $('appPanel').classList.toggle('hidden', !session);
+    if (session) {
+      $('signedInAs').textContent = 'Log masuk: ' + (session.user.email || 'pengguna');
+      hideMessage('loginMsg');
+      await loadCars();
+    }
+  }
+
+  $('loginForm').addEventListener('submit', async e => {
+    e.preventDefault(); hideMessage('loginMsg'); $('loginBtn').disabled = true;
+    const {error} = await db.auth.signInWithPassword({email:$('email').value.trim(), password:$('password').value});
+    $('loginBtn').disabled = false;
+    if (error) { message('loginMsg', 'Log masuk gagal: ' + error.message, 'error'); return; }
+    $('password').value = '';
+    await showSession();
+  });
+
+  $('logoutBtn').addEventListener('click', async () => {
+    const {error} = await db.auth.signOut();
+    if (error) message('appMsg', error.message, 'error');
+    else { $('appPanel').classList.add('hidden'); $('loginPanel').classList.remove('hidden'); }
+  });
+
+  async function loadCars() {
+    $('carRows').innerHTML = '<tr><td colspan="7">Memuatkan rekod...</td></tr>';
+    const {data, error} = await db.from('kereta').select('*').order('created_at', {ascending:false});
+    if (error) {
+      $('carRows').innerHTML = '<tr><td colspan="7">Gagal memuatkan rekod.</td></tr>';
+      message('appMsg', 'Ralat database: ' + error.message + '\nSemak polisi RLS dan pastikan akaun sudah log masuk.', 'error');
+      return;
+    }
+    allCars = data || []; hideMessage('appMsg'); renderCars();
+  }
+
+  function renderCars() {
+    const q = $('search').value.trim().toLowerCase();
+    const rows = allCars.filter(c => [c.no_pendaftaran,c.model,c.nama_pelanggan,c.status_bayaran].some(v => String(v ?? '').toLowerCase().includes(q)));
+    if (!rows.length) { $('carRows').innerHTML = '<tr><td colspan="7">Tiada rekod dijumpai.</td></tr>'; return; }
+    $('carRows').innerHTML = rows.map(c => `<tr>
+      <td><strong>${esc(c.no_pendaftaran)}</strong></td><td>${esc(c.model)}</td><td>${esc(c.nama_pelanggan || '-')}</td>
+      <td><span class="badge">${esc(c.status_bayaran)}</span></td><td>${rm(c.jumlah_tunggakan)}</td><td>${esc(c.tarikh_kemaskini || '-')}</td>
+      <td><div class="row"><button class="secondary" data-edit="${c.id}" type="button">Edit</button><button class="danger" data-delete="${c.id}" type="button">Padam</button></div></td>
+    </tr>`).join('');
+    $('carRows').querySelectorAll('[data-edit]').forEach(b => b.addEventListener('click', () => editCar(b.dataset.edit)));
+    $('carRows').querySelectorAll('[data-delete]').forEach(b => b.addEventListener('click', () => deleteCar(b.dataset.delete)));
+  }
+
+  function clearForm() {
+    $('carForm').reset(); $('recordId').value=''; $('arrears').value='0'; $('updated').value=today();
+    $('formTitle').textContent='Tambah rekod kereta'; $('saveBtn').textContent='Simpan rekod'; $('cancelEdit').classList.add('hidden');
+  }
+  function editCar(id) {
+    const c = allCars.find(x => String(x.id) === String(id)); if (!c) return;
+    $('recordId').value=c.id; $('plate').value=c.no_pendaftaran || ''; $('model').value=c.model || '';
+    $('customer').value=c.nama_pelanggan || ''; $('status').value=c.status_bayaran || 'Belum disahkan';
+    $('arrears').value=c.jumlah_tunggakan ?? 0; $('updated').value=c.tarikh_kemaskini || today(); $('notes').value=c.catatan || '';
+    $('formTitle').textContent='Edit rekod kereta'; $('saveBtn').textContent='Simpan perubahan'; $('cancelEdit').classList.remove('hidden');
+    window.scrollTo({top:0,behavior:'smooth'});
+  }
+
+  $('carForm').addEventListener('submit', async e => {
+    e.preventDefault(); hideMessage('appMsg'); $('saveBtn').disabled=true;
+    const plate = $('plate').value.trim().toUpperCase();
+    const record = {
+      no_pendaftaran: plate, model:$('model').value.trim(), nama_pelanggan:$('customer').value.trim() || null,
+      status_bayaran:$('status').value, jumlah_tunggakan:Number($('arrears').value || 0),
+      tarikh_kemaskini:$('updated').value || today(), catatan:$('notes').value.trim() || null
+    };
+    let result;
+    if ($('recordId').value) result = await db.from('kereta').update(record).eq('id', $('recordId').value);
+    else result = await db.from('kereta').insert(record);
+    $('saveBtn').disabled=false;
+    if (result.error) { message('appMsg','Gagal menyimpan: '+result.error.message, 'error'); return; }
+    message('appMsg', $('recordId').value ? 'Rekod berjaya dikemas kini.' : 'Rekod berjaya ditambah.', 'ok');
+    clearForm(); await loadCars();
+  });
+
+  async function deleteCar(id) {
+    const c = allCars.find(x => String(x.id) === String(id));
+    if (!c || !confirm('Padam rekod ' + c.no_pendaftaran + '? Tindakan ini tidak boleh dibatalkan.')) return;
+    const {error} = await db.from('kereta').delete().eq('id', id);
+    if (error) { message('appMsg','Gagal memadam: '+error.message,'error'); return; }
+    message('appMsg','Rekod berjaya dipadam.','ok'); await loadCars();
+  }
+
+  $('search').addEventListener('input', renderCars);
+  $('refreshBtn').addEventListener('click', loadCars);
+  $('clearBtn').addEventListener('click', clearForm);
+  $('cancelEdit').addEventListener('click', clearForm);
+  $('updated').value=today();
+  $('exportBtn').addEventListener('click', () => {
+    const headers=['No. Pendaftaran','Model','Nama Pelanggan','Status Bayaran','Jumlah Tunggakan','Tarikh Kemas Kini','Catatan'];
+    const data=allCars.map(c=>[c.no_pendaftaran,c.model,c.nama_pelanggan,c.status_bayaran,c.jumlah_tunggakan,c.tarikh_kemaskini,c.catatan]);
+    const csv=[headers,...data].map(row=>row.map(v=>'"'+String(v ?? '').replace(/"/g,'""')+'"').join(',')).join('\r\n');
+    const blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8;'});
+    const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='rekod-kereta.csv'; a.click(); URL.revokeObjectURL(a.href);
+  });
+  db.auth.onAuthStateChange((_event, session) => {
+    $('loginPanel').classList.toggle('hidden', !!session);
+    $('appPanel').classList.toggle('hidden', !session);
+    if (session) { $('signedInAs').textContent='Log masuk: '+(session.user.email || 'pengguna'); setTimeout(loadCars,0); }
+  });
+  showSession();
+})();
+</script>
+</body>
+</html>
