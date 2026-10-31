@@ -1,0 +1,20 @@
+{
+  "name": "Sistem Penarik Kereta",
+  "short_name": "Penarik Kereta",
+  "description": "Sistem rekod dan tugasan pasukan penarik kereta",
+  "lang": "ms-MY",
+  "start_url": "/sistem-penarik-kereta/",
+  "scope": "/sistem-penarik-kereta/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#f3f6fb",
+  "theme_color": "#102a43",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
