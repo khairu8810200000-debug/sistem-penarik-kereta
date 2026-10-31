@@ -44,6 +44,7 @@ table{border-collapse:collapse;width:100%;min-width:760px}th,td{text-align:left;
 <div class="row noprint" style="justify-content:space-between"><div><strong id="signedInAs">Sudah log masuk</strong><div class="small">Rekod disimpan dalam database Supabase.</div></div><div class="row"><button id="notifyBtn" class="secondary" type="button">Aktifkan notifikasi</button><button id="pdfBtn" type="button">Cetak / Simpan PDF</button><button id="logoutBtn" class="secondary" type="button">Log keluar</button></div></div>
 <div id="appMsg" class="status"></div>
 </div>
+<div class="card hidden" id="teamDashboardCard"><h2>Dashboard Team Saya</h2><div class="stats"><div class="stat"><span class="small">Kereta ditugaskan</span><strong id="teamStatTotal">0</strong></div><div class="stat"><span class="small">Dalam proses</span><strong id="teamStatProgress">0</strong></div><div class="stat"><span class="small">Berjaya ditarik</span><strong id="teamStatDone">0</strong></div><div class="stat"><span class="small">Jumlah tunggakan</span><strong id="teamStatArrears">RM0.00</strong></div></div><p class="small">Ringkasan hanya untuk kereta yang ditugaskan kepada akaun team ini.</p></div>
 <div class="card" id="dashboardCard"><h2>Dashboard Admin</h2><div class="stats"><div class="stat"><span class="small">Jumlah kereta</span><strong id="statTotal">0</strong></div><div class="stat"><span class="small">Dalam proses</span><strong id="statProgress">0</strong></div><div class="stat"><span class="small">Berjaya ditarik</span><strong id="statDone">0</strong></div><div class="stat"><span class="small">Jumlah tunggakan</span><strong id="statArrears">RM0.00</strong></div></div></div><div class="card" id="manageCard">
 <h2 id="formTitle">Tambah rekod kereta</h2>
 <form id="carForm" class="grid">
@@ -109,6 +110,7 @@ table{border-collapse:collapse;width:100%;min-width:760px}th,td{text-align:left;
       realtimeChannel = db.channel('kereta-live-updates').on('postgres_changes',{event:'*',schema:'public',table:'kereta'},payload=>{if(payload.eventType==='INSERT'&&payload.new&&(isAdmin||payload.new.assigned_to===currentUserId))notifyNewCar(payload.new);loadCars();}).subscribe();
       $('manageCard').classList.toggle('hidden', !isAdmin);
       $('dashboardCard').classList.toggle('hidden', !isAdmin);
+      $('teamDashboardCard').classList.toggle('hidden', isAdmin);
       $('signedInAs').textContent += isAdmin ? ' • ADMIN' : ' • TEAM (paparan sahaja)';
       await loadCars();
       if (profile.error || !profile.data) {
@@ -150,10 +152,19 @@ table{border-collapse:collapse;width:100%;min-width:760px}th,td{text-align:left;
       message('appMsg', 'Ralat database: ' + error.message + '\nSemak polisi RLS dan pastikan akaun sudah log masuk.', 'error');
       return;
     }
-    allCars = data || []; hideMessage('appMsg'); renderCars(); updateDashboard();
+    allCars = data || []; hideMessage('appMsg'); renderCars(); updateDashboard(); updateTeamDashboard();
   }
 
   function updateDashboard() { $('statTotal').textContent=allCars.length; $('statProgress').textContent=allCars.filter(c=>(c.status_tindakan||'Dalam Proses')==='Dalam Proses').length; $('statDone').textContent=allCars.filter(c=>c.status_tindakan==='Berjaya Ditarik').length; $('statArrears').textContent=rm(allCars.reduce((s,c)=>s+Number(c.jumlah_tunggakan||0),0)); }
+
+  function updateTeamDashboard() {
+    const assigned = allCars;
+    $('teamStatTotal').textContent = assigned.length;
+    $('teamStatProgress').textContent = assigned.filter(c => (c.status_tindakan || 'Dalam Proses') === 'Dalam Proses').length;
+    $('teamStatDone').textContent = assigned.filter(c => c.status_tindakan === 'Berjaya Ditarik').length;
+    $('teamStatArrears').textContent = rm(assigned.reduce((sum,c) => sum + Number(c.jumlah_tunggakan || 0), 0));
+  }
+
   function getFilteredCars() {
     const q = $('search').value.trim().toLowerCase();
     const actionFilter = $('filterAction')?.value || '';
