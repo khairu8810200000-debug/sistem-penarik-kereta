@@ -43,7 +43,7 @@ table{border-collapse:collapse;width:100%;min-width:760px}th,td{text-align:left;
 <div class="row" style="justify-content:space-between"><div><strong id="signedInAs">Sudah log masuk</strong><div class="small">Rekod disimpan dalam database Supabase.</div></div><button id="logoutBtn" class="secondary" type="button">Log keluar</button></div>
 <div id="appMsg" class="status"></div>
 </div>
-<div class="card">
+<div class="card" id="manageCard">
 <h2 id="formTitle">Tambah rekod kereta</h2>
 <form id="carForm" class="grid">
 <input id="recordId" type="hidden">
@@ -73,6 +73,7 @@ table{border-collapse:collapse;width:100%;min-width:760px}th,td{text-align:left;
   const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   const $ = id => document.getElementById(id);
   let allCars = [];
+  let isAdmin = false;
 
   function message(id, text, type='ok') {
     const el = $(id); el.textContent = text; el.className = 'status ' + type; el.style.display = 'block';
@@ -95,7 +96,14 @@ table{border-collapse:collapse;width:100%;min-width:760px}th,td{text-align:left;
     if (session) {
       $('signedInAs').textContent = 'Log masuk: ' + (session.user.email || 'pengguna');
       hideMessage('loginMsg');
+      const profile = await db.from('profil_team').select('nama,peranan').eq('id', session.user.id).maybeSingle();
+      isAdmin = !profile.error && profile.data?.peranan === 'admin';
+      $('manageCard').classList.toggle('hidden', !isAdmin);
+      $('signedInAs').textContent += isAdmin ? ' • ADMIN' : ' • TEAM (paparan sahaja)';
       await loadCars();
+      if (profile.error || !profile.data) {
+        message('appMsg', 'Profil peranan belum ditemui. Akaun ini diberi akses paparan sahaja. Minta admin semak jadual profil_team.', 'error');
+      }
     }
   }
 
@@ -132,7 +140,7 @@ table{border-collapse:collapse;width:100%;min-width:760px}th,td{text-align:left;
     $('carRows').innerHTML = rows.map(c => `<tr>
       <td><strong>${esc(c.no_pendaftaran)}</strong></td><td>${esc(c.model)}</td><td>${esc(c.nama_pelanggan || '-')}</td>
       <td><span class="badge">${esc(c.status_bayaran)}</span></td><td>${rm(c.jumlah_tunggakan)}</td><td>${esc(c.tarikh_kemaskini || '-')}</td>
-      <td><div class="row"><button class="secondary" data-edit="${c.id}" type="button">Edit</button><button class="danger" data-delete="${c.id}" type="button">Padam</button></div></td>
+      <td><div class="row">${isAdmin ? '<button class="secondary" data-edit="' + c.id + '" type="button">Edit</button><button class="danger" data-delete="' + c.id + '" type="button">Padam</button>' : '<span class="small">Paparan sahaja</span>'}</div></td>
     </tr>`).join('');
     $('carRows').querySelectorAll('[data-edit]').forEach(b => b.addEventListener('click', () => editCar(b.dataset.edit)));
     $('carRows').querySelectorAll('[data-delete]').forEach(b => b.addEventListener('click', () => deleteCar(b.dataset.delete)));
@@ -152,7 +160,8 @@ table{border-collapse:collapse;width:100%;min-width:760px}th,td{text-align:left;
   }
 
   $('carForm').addEventListener('submit', async e => {
-    e.preventDefault(); hideMessage('appMsg'); $('saveBtn').disabled=true;
+    e.preventDefault();
+    if (!isAdmin) { message('appMsg','Akses ditolak. Hanya admin boleh mengubah rekod.','error'); return; } hideMessage('appMsg'); $('saveBtn').disabled=true;
     const plate = $('plate').value.trim().toUpperCase();
     const record = {
       no_pendaftaran: plate, model:$('model').value.trim(), nama_pelanggan:$('customer').value.trim() || null,
@@ -169,6 +178,7 @@ table{border-collapse:collapse;width:100%;min-width:760px}th,td{text-align:left;
   });
 
   async function deleteCar(id) {
+    if (!isAdmin) { message('appMsg','Akses ditolak. Hanya admin boleh memadam rekod.','error'); return; }
     const c = allCars.find(x => String(x.id) === String(id));
     if (!c || !confirm('Padam rekod ' + c.no_pendaftaran + '? Tindakan ini tidak boleh dibatalkan.')) return;
     const {error} = await db.from('kereta').delete().eq('id', id);
@@ -191,7 +201,8 @@ table{border-collapse:collapse;width:100%;min-width:760px}th,td{text-align:left;
   db.auth.onAuthStateChange((_event, session) => {
     $('loginPanel').classList.toggle('hidden', !!session);
     $('appPanel').classList.toggle('hidden', !session);
-    if (session) { $('signedInAs').textContent='Log masuk: '+(session.user.email || 'pengguna'); setTimeout(loadCars,0); }
+    if (session) { setTimeout(showSession, 0); }
+    else { isAdmin = false; $('manageCard').classList.remove('hidden'); }
   });
   showSession();
 })();
