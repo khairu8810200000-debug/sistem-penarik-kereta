@@ -21,7 +21,7 @@ button.secondary{background:#e5edf5;color:#18344d}button.danger{background:#b423
 .status.error{background:#fff0f0;color:#9b1c1c}.status.ok{background:#edfff3;color:#176b37}
 table{border-collapse:collapse;width:100%;min-width:760px}th,td{text-align:left;padding:10px;border-bottom:1px solid #e5eaf0;font-size:14px}th{background:#f7f9fc}
 .tablewrap{overflow:auto}.badge{padding:4px 8px;border-radius:99px;background:#e8eef5;font-size:12px;white-space:nowrap}
-.hidden{display:none!important}.topright{float:right}.authbox{max-width:480px;margin:28px auto}
+.hidden{display:none!important}.topright{float:right}.authbox{max-width:480px;margin:28px auto}.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}.stat{background:#eef6ff;border-radius:10px;padding:14px}.stat strong{display:block;font-size:24px;margin-top:5px}.preview{max-width:220px;max-height:150px;display:block;border-radius:8px;margin-top:8px}@media(max-width:650px){.stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:650px){.grid{grid-template-columns:1fr}.full{grid-column:auto}.wrap{padding:12px}h1{font-size:22px}}
 </style>
 </head>
@@ -43,7 +43,7 @@ table{border-collapse:collapse;width:100%;min-width:760px}th,td{text-align:left;
 <div class="row" style="justify-content:space-between"><div><strong id="signedInAs">Sudah log masuk</strong><div class="small">Rekod disimpan dalam database Supabase.</div></div><button id="logoutBtn" class="secondary" type="button">Log keluar</button></div>
 <div id="appMsg" class="status"></div>
 </div>
-<div class="card" id="manageCard">
+<div class="card" id="dashboardCard"><h2>Dashboard Admin</h2><div class="stats"><div class="stat"><span class="small">Jumlah kereta</span><strong id="statTotal">0</strong></div><div class="stat"><span class="small">Dalam proses</span><strong id="statProgress">0</strong></div><div class="stat"><span class="small">Berjaya ditarik</span><strong id="statDone">0</strong></div><div class="stat"><span class="small">Jumlah tunggakan</span><strong id="statArrears">RM0.00</strong></div></div></div><div class="card" id="manageCard">
 <h2 id="formTitle">Tambah rekod kereta</h2>
 <form id="carForm" class="grid">
 <input id="recordId" type="hidden">
@@ -51,9 +51,9 @@ table{border-collapse:collapse;width:100%;min-width:760px}th,td{text-align:left;
 <div><label for="model">Model kereta *</label><input id="model" required placeholder="Contoh: Toyota Hilux 2022"></div>
 <div><label for="customer">Nama pelanggan</label><input id="customer" placeholder="Nama pelanggan"></div>
 <div><label for="status">Status bayaran *</label><select id="status"><option>Belum disahkan</option><option>Tunggakan</option><option>Dalam tindakan</option><option>Selesai</option></select></div>
-<div><label for="arrears">Jumlah tunggakan (RM)</label><input id="arrears" type="number" min="0" step="0.01" value="0" required></div>
+<div><label for="arrears">Jumlah tunggakan (RM)</label><input id="arrears" type="number" min="0" step="0.01" value="0" required></div><div><label for="actionStatus">Status tindakan</label><select id="actionStatus"><option>Dalam Proses</option><option>Menunggu Arahan</option><option>Berjaya Ditarik</option><option>Tidak Berjaya</option><option>Dibatalkan</option></select></div>
 <div><label for="updated">Tarikh kemas kini</label><input id="updated" type="date"></div>
-<div class="full"><label for="notes">Catatan</label><textarea id="notes" placeholder="Catatan dalaman yang dibenarkan"></textarea></div>
+<div class="full"><label for="notes">Catatan</label><textarea id="notes" placeholder="Catatan dalaman yang dibenarkan"></textarea></div><div class="full"><label for="carPhoto">Gambar kereta</label><input id="carPhoto" type="file" accept="image/*" capture="environment"><img id="photoPreview" class="preview hidden" alt="Pratonton gambar kereta"><input id="imageUrl" type="hidden"></div><div class="full"><label>Lokasi GPS kereta</label><div class="row"><button id="gpsBtn" type="button" class="secondary">Dapatkan lokasi GPS</button><span id="gpsStatus" class="small">Lokasi belum direkodkan</span></div><input id="gpsLat" type="hidden"><input id="gpsLng" type="hidden"></div>
 <div class="full row"><button id="saveBtn" type="submit">Simpan rekod</button><button id="cancelEdit" class="secondary hidden" type="button">Batal edit</button><button id="clearBtn" class="secondary" type="button">Kosongkan borang</button></div>
 </form>
 </div>
@@ -61,7 +61,7 @@ table{border-collapse:collapse;width:100%;min-width:760px}th,td{text-align:left;
 <h2>Carian rekod</h2>
 <div class="row"><input id="search" placeholder="Cari no. pendaftaran, model atau nama pelanggan..."><button id="refreshBtn" type="button">Muat semula</button><button id="exportBtn" class="secondary" type="button">Eksport CSV</button></div>
 <p class="small">Paparan hanya menunjukkan rekod yang boleh diakses oleh akaun yang log masuk.</p>
-<div class="tablewrap"><table><thead><tr><th>No. pendaftaran</th><th>Model</th><th>Pelanggan</th><th>Status</th><th>Tunggakan</th><th>Tarikh</th><th>Tindakan</th></tr></thead><tbody id="carRows"><tr><td colspan="7">Memuatkan rekod...</td></tr></tbody></table></div>
+<div class="tablewrap"><table><thead><tr><th>No. pendaftaran</th><th>Model</th><th>Pelanggan</th><th>Status bayaran</th><th>Status tindakan</th><th>Tunggakan</th><th>Gambar</th><th>GPS</th><th>Tarikh</th><th>Tindakan</th></tr></thead><tbody id="carRows"><tr><td colspan="10">Memuatkan rekod...</td></tr></tbody></table></div>
 </div>
 </section>
 <p class="small">Peringatan: gunakan hanya data yang anda berhak akses. Jangan masukkan nombor kad pengenalan, alamat rumah, atau maklumat sensitif yang tidak diperlukan. Status tunggakan perlu disahkan daripada sumber yang sah.</p>
@@ -74,6 +74,7 @@ table{border-collapse:collapse;width:100%;min-width:760px}th,td{text-align:left;
   const $ = id => document.getElementById(id);
   let allCars = [];
   let isAdmin = false;
+  const STORAGE_BUCKET = 'gambar-kereta';
 
   function message(id, text, type='ok') {
     const el = $(id); el.textContent = text; el.className = 'status ' + type; el.style.display = 'block';
@@ -123,38 +124,38 @@ table{border-collapse:collapse;width:100%;min-width:760px}th,td{text-align:left;
   });
 
   async function loadCars() {
-    $('carRows').innerHTML = '<tr><td colspan="7">Memuatkan rekod...</td></tr>';
+    $('carRows').innerHTML = '<tr><td colspan="10">Memuatkan rekod...</td></tr>';
     const {data, error} = await db.from('kereta').select('*').order('created_at', {ascending:false});
     if (error) {
-      $('carRows').innerHTML = '<tr><td colspan="7">Gagal memuatkan rekod.</td></tr>';
+      $('carRows').innerHTML = '<tr><td colspan="10">Gagal memuatkan rekod.</td></tr>';
       message('appMsg', 'Ralat database: ' + error.message + '\nSemak polisi RLS dan pastikan akaun sudah log masuk.', 'error');
       return;
     }
-    allCars = data || []; hideMessage('appMsg'); renderCars();
+    allCars = data || []; hideMessage('appMsg'); renderCars(); updateDashboard();
   }
 
+  function updateDashboard() { $('statTotal').textContent=allCars.length; $('statProgress').textContent=allCars.filter(c=>(c.status_tindakan||'Dalam Proses')==='Dalam Proses').length; $('statDone').textContent=allCars.filter(c=>c.status_tindakan==='Berjaya Ditarik').length; $('statArrears').textContent=rm(allCars.reduce((s,c)=>s+Number(c.jumlah_tunggakan||0),0)); }
   function renderCars() {
     const q = $('search').value.trim().toLowerCase();
-    const rows = allCars.filter(c => [c.no_pendaftaran,c.model,c.nama_pelanggan,c.status_bayaran].some(v => String(v ?? '').toLowerCase().includes(q)));
-    if (!rows.length) { $('carRows').innerHTML = '<tr><td colspan="7">Tiada rekod dijumpai.</td></tr>'; return; }
+    const rows = allCars.filter(c => [c.no_pendaftaran,c.model,c.nama_pelanggan,c.status_bayaran,c.status_tindakan].some(v => String(v ?? '').toLowerCase().includes(q)));
+    if (!rows.length) { $('carRows').innerHTML = '<tr><td colspan="10">Tiada rekod dijumpai.</td></tr>'; return; }
     $('carRows').innerHTML = rows.map(c => `<tr>
       <td><strong>${esc(c.no_pendaftaran)}</strong></td><td>${esc(c.model)}</td><td>${esc(c.nama_pelanggan || '-')}</td>
-      <td><span class="badge">${esc(c.status_bayaran)}</span></td><td>${rm(c.jumlah_tunggakan)}</td><td>${esc(c.tarikh_kemaskini || '-')}</td>
-      <td><div class="row">${isAdmin ? '<button class="secondary" data-edit="' + c.id + '" type="button">Edit</button><button class="danger" data-delete="' + c.id + '" type="button">Padam</button>' : '<span class="small">Paparan sahaja</span>'}</div></td>
+      <td><span class="badge">${esc(c.status_bayaran)}</span></td><td><span class="badge">${esc(c.status_tindakan || 'Dalam Proses')}</span></td><td>${rm(c.jumlah_tunggakan)}</td><td>${c.gambar_url ? '<a href="' + esc(c.gambar_url) + '" target="_blank" rel="noopener">Lihat gambar</a>' : '-'}</td><td>${c.lokasi_lat && c.lokasi_lng ? '<a href="https://www.google.com/maps?q=' + encodeURIComponent(c.lokasi_lat + ',' + c.lokasi_lng) + '" target="_blank" rel="noopener">Buka peta</a>' : '-'}</td><td>${esc(c.tarikh_kemaskini || '-')}</td><td><div class="row">${isAdmin ? '<button class="secondary" data-edit="' + c.id + '" type="button">Edit</button><button class="danger" data-delete="' + c.id + '" type="button">Padam</button>' : '<span class="small">Paparan sahaja</span>'}</div></td>
     </tr>`).join('');
     $('carRows').querySelectorAll('[data-edit]').forEach(b => b.addEventListener('click', () => editCar(b.dataset.edit)));
     $('carRows').querySelectorAll('[data-delete]').forEach(b => b.addEventListener('click', () => deleteCar(b.dataset.delete)));
   }
 
   function clearForm() {
-    $('carForm').reset(); $('recordId').value=''; $('arrears').value='0'; $('updated').value=today();
+    $('carForm').reset(); $('recordId').value=''; $('arrears').value='0'; $('updated').value=today(); $('imageUrl').value=''; $('photoPreview').src=''; $('photoPreview').classList.add('hidden'); $('gpsLat').value=''; $('gpsLng').value=''; $('gpsStatus').textContent='Lokasi belum direkodkan';
     $('formTitle').textContent='Tambah rekod kereta'; $('saveBtn').textContent='Simpan rekod'; $('cancelEdit').classList.add('hidden');
   }
   function editCar(id) {
     const c = allCars.find(x => String(x.id) === String(id)); if (!c) return;
     $('recordId').value=c.id; $('plate').value=c.no_pendaftaran || ''; $('model').value=c.model || '';
-    $('customer').value=c.nama_pelanggan || ''; $('status').value=c.status_bayaran || 'Belum disahkan';
-    $('arrears').value=c.jumlah_tunggakan ?? 0; $('updated').value=c.tarikh_kemaskini || today(); $('notes').value=c.catatan || '';
+    $('customer').value=c.nama_pelanggan || ''; $('status').value=c.status_bayaran || 'Belum disahkan'; $('actionStatus').value=c.status_tindakan || 'Dalam Proses';
+    $('arrears').value=c.jumlah_tunggakan ?? 0; $('updated').value=c.tarikh_kemaskini || today(); $('notes').value=c.catatan || ''; $('imageUrl').value=c.gambar_url || ''; $('gpsLat').value=c.lokasi_lat || ''; $('gpsLng').value=c.lokasi_lng || ''; $('gpsStatus').textContent=c.lokasi_lat && c.lokasi_lng ? 'GPS direkodkan: '+c.lokasi_lat+', '+c.lokasi_lng : 'Lokasi belum direkodkan'; if(c.gambar_url){$('photoPreview').src=c.gambar_url;$('photoPreview').classList.remove('hidden')}else{$('photoPreview').classList.add('hidden')}
     $('formTitle').textContent='Edit rekod kereta'; $('saveBtn').textContent='Simpan perubahan'; $('cancelEdit').classList.remove('hidden');
     window.scrollTo({top:0,behavior:'smooth'});
   }
@@ -163,11 +164,7 @@ table{border-collapse:collapse;width:100%;min-width:760px}th,td{text-align:left;
     e.preventDefault();
     if (!isAdmin) { message('appMsg','Akses ditolak. Hanya admin boleh mengubah rekod.','error'); return; } hideMessage('appMsg'); $('saveBtn').disabled=true;
     const plate = $('plate').value.trim().toUpperCase();
-    const record = {
-      no_pendaftaran: plate, model:$('model').value.trim(), nama_pelanggan:$('customer').value.trim() || null,
-      status_bayaran:$('status').value, jumlah_tunggakan:Number($('arrears').value || 0),
-      tarikh_kemaskini:$('updated').value || today(), catatan:$('notes').value.trim() || null
-    };
+    let uploadedUrl=$('imageUrl').value||null; const file=$('carPhoto').files?.[0]; if(file){if(!file.type.startsWith('image/')){$('saveBtn').disabled=false;message('appMsg','Sila pilih fail gambar yang sah.','error');return;}if(file.size>8*1024*1024){$('saveBtn').disabled=false;message('appMsg','Saiz gambar mesti kurang daripada 8 MB.','error');return;}const ext=(file.name.split('.').pop()||'jpg').toLowerCase().replace(/[^a-z0-9]/g,'')||'jpg';const path=Date.now()+'-'+Math.random().toString(36).slice(2)+'.'+ext;const {data:up,error:ue}=await db.storage.from(STORAGE_BUCKET).upload(path,file,{upsert:false,contentType:file.type});if(ue){$('saveBtn').disabled=false;message('appMsg','Gagal muat naik gambar. Semak bucket gambar-kereta dan polisi Storage: '+ue.message,'error');return;}uploadedUrl=db.storage.from(STORAGE_BUCKET).getPublicUrl(up.path).data.publicUrl;} const record={no_pendaftaran:plate,model:$('model').value.trim(),nama_pelanggan:$('customer').value.trim()||null,status_bayaran:$('status').value,status_tindakan:$('actionStatus').value,jumlah_tunggakan:Number($('arrears').value||0),tarikh_kemaskini:$('updated').value||today(),catatan:$('notes').value.trim()||null,gambar_url:uploadedUrl,lokasi_lat:$('gpsLat').value?Number($('gpsLat').value):null,lokasi_lng:$('gpsLng').value?Number($('gpsLng').value):null};
     let result;
     if ($('recordId').value) result = await db.from('kereta').update(record).eq('id', $('recordId').value);
     else result = await db.from('kereta').insert(record);
@@ -191,9 +188,11 @@ table{border-collapse:collapse;width:100%;min-width:760px}th,td{text-align:left;
   $('clearBtn').addEventListener('click', clearForm);
   $('cancelEdit').addEventListener('click', clearForm);
   $('updated').value=today();
+  $('carPhoto').addEventListener('change',()=>{const f=$('carPhoto').files?.[0];if(f){$('photoPreview').src=URL.createObjectURL(f);$('photoPreview').classList.remove('hidden');}});
+  $('gpsBtn').addEventListener('click',()=>{if(!navigator.geolocation){message('appMsg','Pelayar tidak menyokong GPS.','error');return;}$('gpsBtn').disabled=true;$('gpsStatus').textContent='Mendapatkan lokasi...';navigator.geolocation.getCurrentPosition(p=>{$('gpsLat').value=p.coords.latitude;$('gpsLng').value=p.coords.longitude;$('gpsStatus').textContent='GPS direkodkan: '+p.coords.latitude.toFixed(6)+', '+p.coords.longitude.toFixed(6);$('gpsBtn').disabled=false;},e=>{$('gpsStatus').textContent='Gagal mendapatkan GPS: '+e.message;$('gpsBtn').disabled=false;},{enableHighAccuracy:true,timeout:15000,maximumAge:0});});
   $('exportBtn').addEventListener('click', () => {
-    const headers=['No. Pendaftaran','Model','Nama Pelanggan','Status Bayaran','Jumlah Tunggakan','Tarikh Kemas Kini','Catatan'];
-    const data=allCars.map(c=>[c.no_pendaftaran,c.model,c.nama_pelanggan,c.status_bayaran,c.jumlah_tunggakan,c.tarikh_kemaskini,c.catatan]);
+    const headers=['No. Pendaftaran','Model','Nama Pelanggan','Status Bayaran','Status Tindakan','Jumlah Tunggakan','Tarikh Kemas Kini','Gambar URL','Latitude','Longitude','Catatan'];
+    const data=allCars.map(c=>[c.no_pendaftaran,c.model,c.nama_pelanggan,c.status_bayaran,c.status_tindakan,c.jumlah_tunggakan,c.tarikh_kemaskini,c.gambar_url,c.lokasi_lat,c.lokasi_lng,c.catatan]);
     const csv=[headers,...data].map(row=>row.map(v=>'"'+String(v ?? '').replace(/"/g,'""')+'"').join(',')).join('\r\n');
     const blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8;'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='rekod-kereta.csv'; a.click(); URL.revokeObjectURL(a.href);
