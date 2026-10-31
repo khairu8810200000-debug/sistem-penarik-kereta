@@ -2,7 +2,10 @@
 <html lang="ms">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#102a43">
+<link rel="manifest" href="/sistem-penarik-kereta/manifest.webmanifest">
+<link rel="icon" href="/sistem-penarik-kereta/icon.svg" type="image/svg+xml">
 <title>Sistem Penarik Kereta</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
@@ -41,7 +44,7 @@ table{border-collapse:collapse;width:100%;min-width:760px}th,td{text-align:left;
 
 <section id="appPanel" class="hidden">
 <div class="card">
-<div class="row noprint" style="justify-content:space-between"><div><strong id="signedInAs">Sudah log masuk</strong><div class="small">Rekod disimpan dalam database Supabase.</div></div><div class="row"><button id="notifyBtn" class="secondary" type="button">Aktifkan notifikasi</button><button id="pdfBtn" type="button">Cetak / Simpan PDF</button><button id="logoutBtn" class="secondary" type="button">Log keluar</button></div></div>
+<div class="row noprint" style="justify-content:space-between"><div><strong id="signedInAs">Sudah log masuk</strong><div class="small">Rekod disimpan dalam database Supabase.</div></div><div class="row"><button id="installBtn" class="secondary hidden" type="button">Pasang aplikasi</button><button id="notifyBtn" class="secondary" type="button">Aktifkan notifikasi</button><button id="pdfBtn" type="button">Cetak / Simpan PDF</button><button id="logoutBtn" class="secondary" type="button">Log keluar</button></div></div>
 <div id="appMsg" class="status"></div>
 </div>
 <div class="card hidden" id="teamDashboardCard"><h2>Dashboard Team Saya</h2><div class="stats"><div class="stat"><span class="small">Kereta ditugaskan</span><strong id="teamStatTotal">0</strong></div><div class="stat"><span class="small">Dalam proses</span><strong id="teamStatProgress">0</strong></div><div class="stat"><span class="small">Berjaya ditarik</span><strong id="teamStatDone">0</strong></div><div class="stat"><span class="small">Jumlah tunggakan</span><strong id="teamStatArrears">RM0.00</strong></div></div><p class="small">Ringkasan hanya untuk kereta yang ditugaskan kepada akaun team ini.</p></div>
@@ -261,6 +264,31 @@ table{border-collapse:collapse;width:100%;min-width:760px}th,td{text-align:left;
     else { isAdmin = false; $('manageCard').classList.remove('hidden'); }
   });
   showSession();
+
+  let installPromptEvent = null;
+  const installBtn = $('installBtn');
+  window.addEventListener('beforeinstallprompt', event => {
+    event.preventDefault();
+    installPromptEvent = event;
+    installBtn.classList.remove('hidden');
+  });
+  installBtn.addEventListener('click', async () => {
+    if (!installPromptEvent) {
+      message('appMsg', 'Jika butang pemasangan tidak muncul, buka menu pelayar dan pilih “Install app” atau “Add to Home Screen”.', 'ok');
+      return;
+    }
+    installPromptEvent.prompt();
+    await installPromptEvent.userChoice;
+    installPromptEvent = null;
+    installBtn.classList.add('hidden');
+  });
+  window.addEventListener('appinstalled', () => {
+    installBtn.classList.add('hidden');
+    message('appMsg', 'Aplikasi berjaya dipasang pada peranti ini.', 'ok');
+  });
+  if ('serviceWorker' in navigator && location.protocol === 'https:') {
+    window.addEventListener('load', () => navigator.serviceWorker.register('/sistem-penarik-kereta/sw.js').catch(err => console.error('Service worker:', err)));
+  }
 })();
 </script>
 </body>
