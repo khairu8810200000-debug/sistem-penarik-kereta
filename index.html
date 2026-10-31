@@ -22,7 +22,8 @@ button.secondary{background:#e5edf5;color:#18344d}button.danger{background:#b423
 table{border-collapse:collapse;width:100%;min-width:760px}th,td{text-align:left;padding:10px;border-bottom:1px solid #e5eaf0;font-size:14px}th{background:#f7f9fc}
 .tablewrap{overflow:auto}.badge{padding:4px 8px;border-radius:99px;background:#e8eef5;font-size:12px;white-space:nowrap}
 .hidden{display:none!important}.topright{float:right}.authbox{max-width:480px;margin:28px auto}.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}.stat{background:#eef6ff;border-radius:10px;padding:14px}.stat strong{display:block;font-size:24px;margin-top:5px}.preview{max-width:220px;max-height:150px;display:block;border-radius:8px;margin-top:8px}@media(max-width:650px){.stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media(max-width:650px){.grid{grid-template-columns:1fr}.full{grid-column:auto}.wrap{padding:12px}h1{font-size:22px}}\n@media print{header,#loginPanel,#manageCard,#dashboardCard,.noprint,#appMsg{display:none!important}body{background:#fff}.wrap{max-width:none;padding:0}.card{box-shadow:none;border:0;padding:4px;margin:0}table{min-width:0;width:100%}th,td{font-size:10px;padding:5px}#appPanel{display:block!important}.tablewrap{overflow:visible}}
+@media(max-width:650px){.grid{grid-template-columns:1fr}.full{grid-column:auto}.wrap{padding:12px}h1{font-size:22px}}
+@media print{header,#loginPanel,#manageCard,#dashboardCard,.noprint,#appMsg{display:none!important}body{background:#fff}.wrap{max-width:none;padding:0}.card{box-shadow:none;border:0;padding:4px;margin:0}table{min-width:0;width:100%}th,td{font-size:10px;padding:5px}#appPanel{display:block!important}.tablewrap{overflow:visible}}
 </style>
 </head>
 <body>
@@ -61,7 +62,7 @@ table{border-collapse:collapse;width:100%;min-width:760px}th,td{text-align:left;
 <h2>Carian rekod</h2>
 <div class="row noprint"><input id="search" placeholder="Cari no. pendaftaran, model atau nama pelanggan..."><button id="refreshBtn" type="button">Muat semula</button><button id="exportBtn" class="secondary" type="button">Eksport CSV</button><button id="mapBtn" class="secondary" type="button">Peta lokasi kereta</button></div><p id="notifyStatus" class="small noprint">Notifikasi belum diaktifkan.</p>
 <p class="small">Paparan hanya menunjukkan rekod yang boleh diakses oleh akaun yang log masuk.</p>
-<div class="tablewrap"><table><thead><tr><th>No. pendaftaran</th><th>Model</th><th>Pelanggan</th><th>Status bayaran</th><th>Status tindakan</th><th>Team ditugaskan</th><th>Tunggakan</th><th>Gambar</th><th>GPS</th><th>Tarikh</th><th>Tindakan</th></tr></thead><tbody id="carRows"><tr><td colspan="10">Memuatkan rekod...</td></tr></tbody></table></div>
+<div class="tablewrap"><table><thead><tr><th>No. pendaftaran</th><th>Model</th><th>Pelanggan</th><th>Status bayaran</th><th>Status tindakan</th><th>Team ditugaskan</th><th>Tunggakan</th><th>Gambar</th><th>GPS</th><th>Tarikh</th><th>Tindakan</th></tr></thead><tbody id="carRows"><tr><td colspan="11">Memuatkan rekod...</td></tr></tbody></table></div>
 </div>
 </section>
 <p class="small">Peringatan: gunakan hanya data yang anda berhak akses. Jangan masukkan nombor kad pengenalan, alamat rumah, atau maklumat sensitif yang tidak diperlukan. Status tunggakan perlu disahkan daripada sumber yang sah.</p>
@@ -103,7 +104,7 @@ table{border-collapse:collapse;width:100%;min-width:760px}th,td{text-align:left;
       currentUserId = session.user.id;
       const profile = await db.from('profil_team').select('nama,peranan').eq('id', session.user.id).maybeSingle();
       isAdmin = !profile.error && profile.data?.peranan === 'admin';
-      if (isAdmin) await loadTeamProfiles();
+      await loadTeamProfiles();
       if (realtimeChannel) db.removeChannel(realtimeChannel);
       realtimeChannel = db.channel('kereta-live-updates').on('postgres_changes',{event:'*',schema:'public',table:'kereta'},payload=>{if(payload.eventType==='INSERT'&&payload.new)notifyNewCar(payload.new);loadCars();}).subscribe();
       $('manageCard').classList.toggle('hidden', !isAdmin);
@@ -139,10 +140,10 @@ table{border-collapse:collapse;width:100%;min-width:760px}th,td{text-align:left;
   }
 
   async function loadCars() {
-    $('carRows').innerHTML = '<tr><td colspan="10">Memuatkan rekod...</td></tr>';
+    $('carRows').innerHTML = '<tr><td colspan="11">Memuatkan rekod...</td></tr>';
     const {data, error} = await db.from('kereta').select('*').order('created_at', {ascending:false});
     if (error) {
-      $('carRows').innerHTML = '<tr><td colspan="10">Gagal memuatkan rekod.</td></tr>';
+      $('carRows').innerHTML = '<tr><td colspan="11">Gagal memuatkan rekod.</td></tr>';
       message('appMsg', 'Ralat database: ' + error.message + '\nSemak polisi RLS dan pastikan akaun sudah log masuk.', 'error');
       return;
     }
@@ -153,7 +154,7 @@ table{border-collapse:collapse;width:100%;min-width:760px}th,td{text-align:left;
   function renderCars() {
     const q = $('search').value.trim().toLowerCase();
     const rows = allCars.filter(c => [c.no_pendaftaran,c.model,c.nama_pelanggan,c.status_bayaran,c.status_tindakan,teamProfiles.find(p=>p.id===c.assigned_to)?.nama].some(v => String(v ?? '').toLowerCase().includes(q)));
-    if (!rows.length) { $('carRows').innerHTML = '<tr><td colspan="10">Tiada rekod dijumpai.</td></tr>'; return; }
+    if (!rows.length) { $('carRows').innerHTML = '<tr><td colspan="11">Tiada rekod dijumpai.</td></tr>'; return; }
     $('carRows').innerHTML = rows.map(c => `<tr>
       <td><strong>${esc(c.no_pendaftaran)}</strong></td><td>${esc(c.model)}</td><td>${esc(c.nama_pelanggan || '-')}<br>${c.no_whatsapp ? '<a href="https://wa.me/' + encodeURIComponent(String(c.no_whatsapp).replace(/[^0-9]/g, '')) + '" target="_blank" rel="noopener">WhatsApp</a>' : '<span class="small">Tiada nombor</span>'}</td>
       <td><span class="badge">${esc(c.status_bayaran)}</span></td><td><span class="badge">${esc(c.status_tindakan || 'Dalam Proses')}</span></td><td>${esc(teamProfiles.find(p=>p.id===c.assigned_to)?.nama || (c.assigned_to ? 'Team ditugaskan' : 'Belum ditugaskan'))}</td><td>${rm(c.jumlah_tunggakan)}</td><td>${c.gambar_url ? '<a href="' + esc(c.gambar_url) + '" target="_blank" rel="noopener">Lihat gambar</a>' : '-'}</td><td>${c.lokasi_lat && c.lokasi_lng ? '<a href="https://www.google.com/maps?q=' + encodeURIComponent(c.lokasi_lat + ',' + c.lokasi_lng) + '" target="_blank" rel="noopener">Buka peta</a>' : '-'}</td><td>${esc(c.tarikh_kemaskini || '-')}</td><td><div class="row">${isAdmin ? '<button class="secondary" data-edit="' + c.id + '" type="button">Edit</button><button class="danger" data-delete="' + c.id + '" type="button">Padam</button>' : '<span class="small">Paparan sahaja</span>'}</div></td>
